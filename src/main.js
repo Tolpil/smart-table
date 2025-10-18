@@ -5,9 +5,26 @@ import {data as sourceData} from "./data/dataset_1.js";
 import {initData} from "./data.js";
 import {processFormData} from "./lib/utils.js";
 import {initTable} from "./components/table.js";
+import {initPagination} from "./components/pagination.js";
 
 // Инициализируем API
 const api = initData(sourceData);
+
+// Получаем элементы DOM для пагинации
+const paginationContainer = document.querySelector('.pagination');
+const fromRow = paginationContainer.querySelector('.from-row');
+const toRow = paginationContainer.querySelector('.to-row');
+const totalRows = document.querySelector('.total-rows');
+
+// Инициализируем пагинацию
+const {applyPagination, updatePagination} = initPagination({
+    pages: 5, // количество видимых страниц
+    fromRow,
+    toRow,
+    totalRows
+}, (pageNum) => {
+    return document.createElement('button');
+});
 
 /**
  * Сбор и обработка полей из таблицы
@@ -26,17 +43,24 @@ function collectState() {
  */
 async function render(action) {
     let state = collectState(); // состояние полей из таблицы
-    let query = {}; // заменяем копирование данных на пустой объект запроса
-    
-    // Здесь будут применяться фильтры, сортировка и пагинация
-    // applyFilter(query, state.filter);
-    // applySort(query, state.sort);
-    // applyPagination(query, state.page);
+    let query = {}; // параметры запроса
 
-    // Получаем данные из API
+    // Здесь будут применяться другие фильтры и сортировки
+    // result = applySearching(result, state, action);
+    // result = applyFiltering(result, state, action);
+    // result = applySorting(result, state, action);
+
+    // Применяем пагинацию к запросу
+    query = applyPagination(query, state, action);
+
+    // Получаем данные с учетом параметров
     const { total, items } = await api.getRecords(query);
-    
-    sampleTable.render(items); // передаем items вместо result
+
+    // Обновляем пагинатор
+    updatePagination(total, query);
+
+    // Рендерим таблицу
+    sampleTable.render(items);
 }
 
 const sampleTable = initTable({
@@ -49,12 +73,11 @@ const sampleTable = initTable({
 // Асинхронная функция инициализации
 async function init() {
     // Получаем индексы
-    const indexes = await api.getIndexes();
-    // Здесь можно добавить дальнейшую инициализацию
+    await api.getIndexes();
 }
 
 const appRoot = document.querySelector('#app');
 appRoot.appendChild(sampleTable.container);
 
-// Заменяем прямой вызов render() на init().then(render)
+// Запускаем инициализацию
 init().then(render);
