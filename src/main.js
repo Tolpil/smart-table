@@ -32,11 +32,14 @@ function collectState() {
 function render(action) {
     let state = collectState(); // состояние полей из таблицы
     let result = [...data]; // копируем для последующего изменения
-    // @todo: использование
-
+    
+    // applyFilter(result, state.filter);
+    // applySort(result, state.sort);
+    // applyPagination(result, state.page);
 
     sampleTable.render(result)
 }
+
 
 const sampleTable = initTable({
     tableTemplate: 'table',
@@ -46,6 +49,16 @@ const sampleTable = initTable({
 }, render);
 
 // @todo: инициализация
+// Отключена синхронная инициализация фильтра
+// Будет заменена на асинхронную загрузку данных с сервера
+// const applyFiltering = initFiltering({
+//     data: data,
+//     container: document.querySelector('.filter-container'),
+//     onFilter: (filteredData) => {
+//         // логика фильтрации
+//     }
+// });
+
 
 
 const appRoot = document.querySelector('#app');
