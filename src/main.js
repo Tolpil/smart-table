@@ -2,16 +2,12 @@ import './fonts/ys-display/fonts.css'
 import './style.css'
 
 import {data as sourceData} from "./data/dataset_1.js";
-
 import {initData} from "./data.js";
 import {processFormData} from "./lib/utils.js";
-
 import {initTable} from "./components/table.js";
-// @todo: подключение
 
-
-// Исходные данные используемые в render()
-const {data, ...indexes} = initData(sourceData);
+// Инициализируем API
+const api = initData(sourceData);
 
 /**
  * Сбор и обработка полей из таблицы
@@ -19,7 +15,6 @@ const {data, ...indexes} = initData(sourceData);
  */
 function collectState() {
     const state = processFormData(new FormData(sampleTable.container));
-
     return {
         ...state
     };
@@ -29,17 +24,20 @@ function collectState() {
  * Перерисовка состояния таблицы при любых изменениях
  * @param {HTMLButtonElement?} action
  */
-function render(action) {
+async function render(action) {
     let state = collectState(); // состояние полей из таблицы
-    let result = [...data]; // копируем для последующего изменения
+    let query = {}; // заменяем копирование данных на пустой объект запроса
     
-    // applyFilter(result, state.filter);
-    // applySort(result, state.sort);
-    // applyPagination(result, state.page);
+    // Здесь будут применяться фильтры, сортировка и пагинация
+    // applyFilter(query, state.filter);
+    // applySort(query, state.sort);
+    // applyPagination(query, state.page);
 
-    sampleTable.render(result)
+    // Получаем данные из API
+    const { total, items } = await api.getRecords(query);
+    
+    sampleTable.render(items); // передаем items вместо result
 }
-
 
 const sampleTable = initTable({
     tableTemplate: 'table',
@@ -48,20 +46,15 @@ const sampleTable = initTable({
     after: []
 }, render);
 
-// @todo: инициализация
-// Отключена синхронная инициализация фильтра
-// Будет заменена на асинхронную загрузку данных с сервера
-// const applyFiltering = initFiltering({
-//     data: data,
-//     container: document.querySelector('.filter-container'),
-//     onFilter: (filteredData) => {
-//         // логика фильтрации
-//     }
-// });
-
-
+// Асинхронная функция инициализации
+async function init() {
+    // Получаем индексы
+    const indexes = await api.getIndexes();
+    // Здесь можно добавить дальнейшую инициализацию
+}
 
 const appRoot = document.querySelector('#app');
 appRoot.appendChild(sampleTable.container);
 
-render();
+// Заменяем прямой вызов render() на init().then(render)
+init().then(render);
