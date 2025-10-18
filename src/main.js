@@ -7,17 +7,18 @@ import {processFormData} from "./lib/utils.js";
 import {initTable} from "./components/table.js";
 import {initPagination} from "./components/pagination.js";
 import {initFiltering} from "./components/filtering.js";
+import {initSearching} from "./components/searching.js";
 
 // Инициализируем API
 const api = initData(sourceData);
 
-// Получаем элементы DOM для пагинации
+// Элементы пагинации
 const paginationContainer = document.querySelector('.pagination');
 const fromRow = paginationContainer.querySelector('.from-row');
 const toRow = paginationContainer.querySelector('.to-row');
 const totalRows = document.querySelector('.total-rows');
 
-// Инициализируем пагинацию
+// Инициализация пагинации
 const {applyPagination, updatePagination} = initPagination({
     pages: 5,
     fromRow,
@@ -25,16 +26,19 @@ const {applyPagination, updatePagination} = initPagination({
     totalRows
 }, (pageNum) => document.createElement('button'));
 
-// Получаем элементы фильтрации
+// Элементы фильтрации
 const filteringElements = {
-    // Здесь должны быть ваши элементы фильтрации
-    // Например:
+    // Пример элементов фильтрации
     // sellerFilter: document.querySelector('#seller-filter'),
     // dateFilter: document.querySelector('#date-filter')
 };
 
-// Инициализируем фильтрацию
+// Инициализация фильтрации
 const {applyFiltering, updateIndexes} = initFiltering(filteringElements);
+
+// Инициализация поиска
+const searchField = document.querySelector('#search-field');
+const applySearching = initSearching(searchField.name);
 
 function collectState() {
     const state = processFormData(new FormData(sampleTable.container));
@@ -47,23 +51,22 @@ async function render(action) {
     let state = collectState();
     let query = {};
 
+    // Применяем поиск
+    query = applySearching(query, state, action);
+
     // Применяем фильтрацию
     query = applyFiltering(query, state, action);
-
-    // Другие apply*
-    // query = applySearching(query, state, action);
-    // query = applySorting(query, state, action);
 
     // Применяем пагинацию
     query = applyPagination(query, state, action);
 
-    // Получаем данные
+    // Получаем данные с сервера
     const {total, items} = await api.getRecords(query);
 
     // Обновляем пагинатор
     updatePagination(total, query);
 
-    // Рендерим таблицу
+    // Обновляем таблицу
     sampleTable.render(items);
 }
 
@@ -83,8 +86,7 @@ async function init() {
     });
 }
 
+// Инициализация приложения
 const appRoot = document.querySelector('#app');
 appRoot.appendChild(sampleTable.container);
-
-// Запускаем инициализацию
 init().then(render);
