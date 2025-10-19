@@ -1,25 +1,89 @@
-import {cloneTemplate} from "../lib/utils.js";
+import { cloneTemplate } from "../lib/utils.js";
 
 /**
- * Инициализирует таблицу и вызывает коллбэк при любых изменениях и нажатиях на кнопки
+ * Инициализирует таблицу и обрабатывает события при изменениях и нажатиях на кнопки
  *
- * @param {Object} settings
- * @param {(action: HTMLButtonElement | undefined) => void} onAction
- * @returns {{container: Node, elements: *, render: render}}
+ * @param {Object} settings - Настройки таблицы
+ * @param {Function} onAction - Колбэк для обработки действий
+ * @returns {Object} - Объект с контейнером, элементами и методом рендеринга
  */
 export function initTable(settings, onAction) {
-    const {tableTemplate, rowTemplate, before, after} = settings;
+    // Разбираем настройки на составляющие
+    const { tableTemplate, rowTemplate, before, after } = settings;
+
+    // Клонируем основной шаблон таблицы
     const root = cloneTemplate(tableTemplate);
 
-    // @todo: #1.2 —  вывести дополнительные шаблоны до и после таблицы
+    /**
+     * Добавление дополнительных шаблонов до таблицы
+     * Обрабатываем в обратном порядке для корректного отображения
+     */
+    before.reverse().forEach((templateId) => {
+        root[templateId] = cloneTemplate(templateId);
+        root.container.prepend(root[templateId].container);
+    });
 
-    // @todo: #1.3 —  обработать события и вызвать onAction()
+    /**
+     * Добавление дополнительных шаблонов после таблицы
+     */
+    after.forEach((templateId) => {
+        root[templateId] = cloneTemplate(templateId);
+        root.container.append(root[templateId].container);
+    });
 
+    /**
+     * Обработка событий на контейнере таблицы
+     */
+    root.container.addEventListener("change", (e) => {
+        onAction();
+    });
+
+    root.container.addEventListener("reset", (e) => {
+        setTimeout(onAction);
+    });
+
+    root.container.addEventListener("submit", (e) => {
+        e.preventDefault();
+        onAction(e.submitter);
+    });
+
+    /**
+     * Метод рендеринга данных в таблицу
+     *
+     * @param {Array} data - Массив данных для отображения
+     * @returns {void}
+     */
     const render = (data) => {
-        // @todo: #1.1 — преобразовать данные в массив строк на основе шаблона rowTemplate
-        const nextRows = [];
-        root.elements.rows.replaceChildren(...nextRows);
-    }
+        // Преобразуем данные в массив строк
+        const nextRows = data.map((item) => {
+            const row = cloneTemplate(rowTemplate);
 
-    return {...root, render};
+            // Заполняем ячейки данными
+            Object.keys(item).forEach((key) => {
+                if (row.elements && row.elements[key]) {
+                    row.elements[key].textContent = item[key];
+                }
+            });
+
+            return row.container;
+        });
+
+        // Обновляем содержимое таблицы
+        root.elements.rows.replaceChildren(...nextRows);
+    };
+
+    // Возвращаем основной объект с методами и свойствами
+    return {
+        ...root,
+        render,
+    };
 }
+
+/**
+ * Описание логики работы:
+ * 1. Инициализация основного контейнера таблицы
+ * 2. Добавление дополнительных шаблонов (до и после таблицы)
+ * 3. Настройка обработчиков событий
+ * 4. Реализация метода рендеринга данных
+ * 5. Возврат объекта с основными методами и свойствами
+ */
