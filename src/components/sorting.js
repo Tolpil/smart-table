@@ -1,41 +1,18 @@
-// components/sorting.js
-
-import {sortMap} from "../lib/sort.js";
+import {sortCollection, sortMap} from "../lib/sort.js";
 
 export function initSorting(columns) {
-    return (query, state, action) => {
+    return (data, state, action) => {
         let field = null;
         let order = null;
 
-        // Обработка действия сортировки
         if (action && action.name === 'sort') {
-            // Получаем параметры сортировки из действия
-            field = action.field;
-            order = action.order || 'asc'; // по умолчанию сортировка по возрастанию
-            
-            // Сбрасываем сортировки остальных колонок
-            Object.keys(columns).forEach(col => {
-                if (col !== field) {
-                    columns[col].order = 'none';
-                }
-            });
-            
-            // Сохраняем текущий порядок сортировки
-            columns[field].order = order;
+            // @todo: #3.1 — запомнить выбранный режим сортировки
+
+            // @todo: #3.2 — сбросить сортировки остальных колонок
         } else {
-            // Получаем сохраненный порядок сортировки
-            Object.keys(columns).forEach(col => {
-                if (columns[col].order !== 'none') {
-                    field = col;
-                    order = columns[col].order;
-                }
-            });
+            // @todo: #3.3 — получить выбранный режим сортировки
         }
 
-        // Формируем параметр сортировки
-        const sort = (field && order !== 'none') ? `${field}:${order}` : null;
-
-        // Возвращаем модифицированный query
-        return sort ? Object.assign({}, query, { sort }) : query;
+        return sortCollection(data, field, order);
     }
 }
