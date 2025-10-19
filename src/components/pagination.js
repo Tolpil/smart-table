@@ -1,61 +1,96 @@
-import {getPages} from "../lib/utils.js";
+import { getPages } from "../lib/utils.js";
 
-export const initPagination = ({pages, fromRow, toRow, totalRows}, createPage) => {
-    let pageCount; // переменная для хранения количества страниц
+/**
+ * Инициализирует функционал пагинации
+ *
+ * @param {Object} options - Настройки пагинации
+ * @param {number} options.pages - Количество отображаемых страниц
+ * @param {HTMLElement} options.fromRow - Контейнер для отображения номера начальной строки
+ * @param {HTMLElement} options.toRow - Контейнер для отображения номера конечной строки
+ * @param {HTMLElement} options.totalRows - Контейнер для отображения общего количества строк
+ * @param {Function} createPage - Функция создания элемента страницы
+ * @returns {Object} - Объект с методами управления пагинацией
+ */
+export const initPagination = ({ pages, fromRow, toRow, totalRows }, createPage) => {
+    // Создаем шаблон кнопки страницы и очищаем контейнер
+    // Используем первый элемент как шаблон и удаляем его из DOM
+    const pageTemplate = pages.firstElementChild.cloneNode(true);
+    pages.firstElementChild.remove();
 
-    // Функция формирования параметров пагинации
+    let pageCount = 0; // Общее количество страниц
+
+    /**
+     * Применяет параметры пагинации к запросу
+     *
+     * @param {Object} query - Текущий запрос
+     * @param {Object} state - Состояние пагинации
+     * @param {Object} action - Действие навигации (кнопки)
+     * @returns {Object} - Обновленный запрос с параметрами пагинации
+     */
     const applyPagination = (query, state, action) => {
-        const limit = state.rowsPerPage;
-        let page = state.page;
+        const limit = state.rowsPerPage; // Количество элементов на странице
+        let page = state.page; // Текущая страница
 
-        // @todo: #2.6 — обработать действия
-        if (action === 'prev') {
-            page = Math.max(page - 1, 1);
-        } else if (action === 'next') {
-            page = Math.min(page + 1, pageCount);
-        } else if (action === 'first') {
-            page = 1;
-        } else if (action === 'last') {
-            page = pageCount;
+        // Обработка действий навигации
+        if (action) {
+            switch (action.name) {
+                case "prev":
+                    // Переход на предыдущую страницу
+                    page = Math.max(1, page - 1);
+                    break;
+                case "next":
+                    // Переход на следующую страницу
+                    page = Math.min(pageCount, page + 1);
+                    break;
+                case "first":
+                    // Переход на первую страницу
+                    page = 1;
+                    break;
+                case "last":
+                    // Переход на последнюю страницу
+                    page = pageCount;
+                    break;
+            }
         }
 
-        return {
-            ...query,
+        // Возвращаем новый объект с параметрами пагинации
+        return Object.assign({}, query, {
             limit,
-            page
-        };
+            page,
+        });
     };
 
-    // Функция обновления состояния пагинации
+    /**
+     * Обновляет состояние пагинации
+     *
+     * @param {number} total - Общее количество элементов
+     * @param {Object} params - Параметры пагинации
+     * @param {number} params.page - Текущая страница
+     * @param {number} params.limit - Количество элементов на странице
+     */
     const updatePagination = (total, { page, limit }) => {
-        // @todo: #2.1 — посчитать количество страниц, объявить переменные и константы
+        // Рассчитываем общее количество страниц
         pageCount = Math.ceil(total / limit);
 
-        // @todo: #2.4 — получить список видимых страниц и вывести их
-        const visiblePages = getPages(pageCount, page, pages);
+        // Получаем список видимых страниц
+        const visiblePages = getPages(page, pageCount, 5);
 
-        // @todo: #2.3 — подготовить шаблон кнопки для страницы и очистить контейнер
-        fromRow.innerHTML = '';
-        toRow.innerHTML = '';
+        // Обновляем отображение страниц
+        pages.replaceChildren(
+            ...visiblePages.map((pageNumber) => {
+                const el = pageTemplate.cloneNode(true); // Клонируем шаблон
+                return createPage(el, pageNumber, pageNumber === page);
+            })
+        );
 
-        visiblePages.forEach((pageNum, index) => {
-            const pageElement = createPage(pageNum);
-            if (pageNum === page) {
-                pageElement.classList.add('active');
-            }
-            if (index < pages / 2) {
-                fromRow.appendChild(pageElement);
-            } else {
-                toRow.appendChild(pageElement);
-            }
-        });
-
-        // @todo: #2.5 — обновить статус пагинации
-        totalRows.textContent = total;
+        // Обновляем статус пагинации
+        fromRow.textContent = (page - 1) * limit + 1; // Начальная строка
+        toRow.textContent = Math.min(page * limit, total); // Конечная строка
+        totalRows.textContent = total; // Общее количество строк
     };
 
     return {
         updatePagination,
-        applyPagination
+        applyPagination,
     };
 };
