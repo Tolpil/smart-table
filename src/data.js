@@ -1,75 +1,91 @@
-import {makeIndex} from "./lib/utils.js";
+import { makeIndex } from "./lib/utils.js";
 
-// Добавляем константу с адресом сервера
-const BASE_URL = 'https://webinars.webdev.education-services.ru/sp7-api';
+// Базовый URL для API запросов
+const BASE_URL = "https://webinars.webdev.education-services.ru/sp7-api";
 
-export function initData(sourceData) {
+/**
+ * Инициализирует работу с данными
+ * @returns {Object} - Объект с методами для работы с данными
+ */
+export function initData() {
     // Переменные для кеширования данных
-    let sellers;
-    let customers;
-    let lastResult;
-    let lastQuery;
+    let sellers; // Индексы продавцов
+    let customers; // Индексы покупателей
+    let lastResult; // Последние полученные данные
+    let lastQuery; // Последний использованный запрос
 
-    // Функция для преобразования данных в нужный формат
-    const mapRecords = (data) => data.map(item => ({
-        id: item.receipt_id,
-        date: item.date,
-        seller: sellers[item.seller_id],
-        customer: customers[item.customer_id],
-        total: item.total_amount
-    }));
+    /**
+     * Преобразует сырые данные в формат, подходящий для отображения в таблице
+     * @param {Array} data - Массив исходных данных
+     * @returns {Array} - Массив подготовленных записей
+     */
+    const mapRecords = (data) =>
+        data.map((item) => ({
+            id: item.receipt_id,
+            date: item.date,
+            seller: sellers[item.seller_id],
+            customer: customers[item.customer_id],
+            total: item.total_amount,
+        }));
 
-    // Функция получения индексов
+    /**
+     * Загружает индексы продавцов и покупателей
+     * @returns {Promise<Object>} - Объект с индексами
+     */
     const getIndexes = async () => {
-        try {
-            if (!sellers || !customers) {
-                // Если индексы не загружены, делаем запросы
-                [sellers, customers] = await Promise.all([
-                    fetch(`${BASE_URL}/sellers`)
-                        .then(res => res.json())
-                        .then(data => makeIndex(data, 'id', v => `${v.first_name} ${v.last_name}`)),
-                    
-                    fetch(`${BASE_URL}/customers`)
-                        .then(res => res.json())
-                        .then(data => makeIndex(data, 'id', v => `${v.first_name} ${v.last_name}`))
-                ]);
-            }
-            
-            return { sellers, customers };
-        } catch (error) {
-            console.error('Ошибка получения индексов:', error);
-            throw error;
+        // Проверяем, загружены ли индексы
+        if (!sellers || !customers) {
+            // Если нет, выполняем параллельные запросы
+            [sellers, customers] = await Promise.all([
+                fetch(`${BASE_URL}/sellers`).then((res) => res.json()), // Загружаем данные продавцов
+                fetch(`${BASE_URL}/customers`).then((res) => res.json()), // Загружаем данные покупателей
+            ]);
         }
+
+        return { sellers, customers };
     };
 
-    // Функция получения записей
+    /**
+     * Получает записи о продажах с сервера
+     * @param {Object} query - Параметры запроса
+     * @param {boolean} isUpdated - Флаг принудительного обновления
+     * @returns {Promise<Object>} - Объект с данными
+     */
     const getRecords = async (query, isUpdated = false) => {
-        try {
-            const qs = new URLSearchParams(query);
-            const nextQuery = qs.toString();
+        // Преобразуем параметры в URLSearchParams
+        const qs = new URLSearchParams(query);
+        const nextQuery = qs.toString();
 
-            if (lastQuery === nextQuery && !isUpdated) {
-                return lastResult;
-            }
-
-            const response = await fetch(`${BASE_URL}/records?${nextQuery}`);
-            const records = await response.json();
-
-            lastQuery = nextQuery;
-            lastResult = {
-                total: records.total,
-                items: mapRecords(records.items)
-            };
-
-            return lastResult;
-        } catch (error) {
-            console.error('Ошибка получения записей:', error);
-            throw error;
+        // Проверяем кеш
+        if (lastQuery === nextQuery && !isUpdated) {
+            return lastResult; // Возвращаем кешированные данные
         }
+
+        // Выполняем запрос к серверу
+        const response = await fetch(`${BASE_URL}/records?${nextQuery}`);
+        const records = await response.json();
+
+        // Сохраняем результат для кеширования
+        lastQuery = nextQuery;
+        lastResult = {
+            total: records.total,
+            items: mapRecords(records.items),
+        };
+
+        return lastResult;
     };
 
     return {
         getIndexes,
-        getRecords
+        getRecords,
     };
 }
+
+/**
+ * Описание функционала:
+ * 1. Управление кешем данных
+ * 2. Преобразование сырых данных в удобный формат
+ * 3. Загрузка индексов продавцов и покупателей
+ * 4. Получение записей с учетом кеширования
+ * 5. Работа с API через асинхронные запросы
+ */
