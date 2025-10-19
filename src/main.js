@@ -1,107 +1,115 @@
-import './fonts/ys-display/fonts.css'
-import './style.css'
+// Импортируем стили
+import "./fonts/ys-display/fonts.css";
+import "./style.css";
 
-import {data as sourceData} from "./data/dataset_1.js";
-import {initData} from "./data.js";
-import {processFormData} from "./lib/utils.js";
-import {initTable} from "./components/table.js";
-import {initPagination} from "./components/pagination.js";
-import {initFiltering} from "./components/filtering.js";
-import {initSearching} from "./components/searching.js";
-import {initSorting} from "./components/sorting.js";
+// Импортируем необходимые модули
+import { initData } from "./data.js";
+import { processFormData } from "./lib/utils.js";
 
-// Инициализируем API
-const api = initData(sourceData);
+import { initTable } from "./components/table.js";
+import { initPagination } from "./components/pagination.js";
+import { initSorting } from "./components/sorting.js";
+import { initFiltering } from "./components/filtering.js";
+import { initSearching } from "./components/searching.js";
 
-// Элементы пагинации
-const paginationContainer = document.querySelector('.pagination');
-const fromRow = paginationContainer.querySelector('.from-row');
-const toRow = paginationContainer.querySelector('.to-row');
-const totalRows = document.querySelector('.total-rows');
+// Инициализируем работу с данными
+const api = initData();
 
-// Инициализация пагинации
-const {applyPagination, updatePagination} = initPagination({
- pages: 5,
- fromRow,
- toRow,
- totalRows
-}, (pageNum) => document.createElement('button'));
-
-// Элементы фильтрации
-const filteringElements = {
- // Пример элементов фильтрации
- // sellerFilter: document.querySelector('#seller-filter'),
- // dateFilter: document.querySelector('#date-filter')
-};
-
-// Инициализация фильтрации
-const {applyFiltering, updateIndexes} = initFiltering(filteringElements);
-
-// Инициализация поиска
-const searchField = document.querySelector('#search-field');
-const applySearching = initSearching(searchField.name);
-
-// Инициализация сортировки
-const columns = {
- // Конфигурация колонок для сортировки
- name: { order: 'none' },
- date: { order: 'none' },
- price: { order: 'none' },
- seller: { order: 'none' },
- client: { order: 'none' }
-};
-const applySorting = initSorting(columns);
-
+/**
+ * Собирает и обрабатывает данные из формы
+ * @returns {Object} - Объект с состоянием формы
+ */
 function collectState() {
- const state = processFormData(new FormData(sampleTable.container));
- return {
- ...state
- };
+    const state = processFormData(new FormData(sampleTable.container));
+    const rowsPerPage = parseInt(state.rowsPerPage, 10); // преобразуем в число
+    const page = parseInt(state.page ?? 1, 10); // номер страницы по умолчанию 1
+
+    return {
+        ...state,
+        rowsPerPage,
+        page,
+    };
 }
 
+/**
+ * Перерисовывает состояние таблицы при изменениях
+ * @param {HTMLButtonElement?} action - Действие, вызвавшее обновление
+ */
 async function render(action) {
- let state = collectState();
- let query = {};
+    // Собираем состояние из формы
+    let state = collectState();
+    let query = {};
 
- // Применяем сортировку
- query = applySorting(query, state, action);
+    // Применяем все фильтры и настройки
+    query = applySearching(query, state, action);
+    query = applyFiltering(query, state, action);
+    query = applySorting(query, state, action);
+    query = applyPagination(query, state, action);
 
- // Применяем поиск
- query = applySearching(query, state, action);
+    // Получаем данные с сервера
+    const { total, items } = await api.getRecords(query);
 
- // Применяем фильтрацию
- query = applyFiltering(query, state, action);
-
- // Применяем пагинацию
- query = applyPagination(query, state, action);
-
- // Получаем данные с сервера
- const {total, items} = await api.getRecords(query);
-
- // Обновляем пагинатор
- updatePagination(total, query);
-
- // Обновляем таблицу
- sampleTable.render(items);
+    // Обновляем интерфейс
+    updatePagination(total, query);
+    sampleTable.render(items);
 }
 
-const sampleTable = initTable({
- tableTemplate: 'table',
- rowTemplate: 'row',
- columns: columns, // передаем конфигурацию колонок
-}, render);
+// Инициализируем таблицу
+const sampleTable = initTable(
+    {
+        tableTemplate: "table",
+        rowTemplate: "row",
+        before: ["search", "header", "filter"],
+        after: ["pagination"],
+    },
+    render
+);
 
-async function init() {
- // Получаем индексы
- const indexes = await api.getIndexes();
- 
- // Обновляем индексы в фильтрах
- updateIndexes(sampleTable.filter.elements, {
- searchBySeller: indexes.sellers
- });
-}
+// Инициализируем пагинацию
+const { applyPagination, updatePagination } = initPagination(sampleTable.pagination.elements, (el, page, isCurrent) => {
+    const input = el.querySelector("input");
+    const label = el.querySelector("span");
+    input.value = page;
+    input.checked = isCurrent;
+    label.textContent = page;
+    return el;
+});
 
-// Инициализация приложения
-const appRoot = document.querySelector('#app');
+// Инициализируем сортировку
+const applySorting = initSorting([sampleTable.header.elements.sortByDate, sampleTable.header.elements.sortByTotal]);
+
+// Инициализируем фильтрацию
+const { applyFiltering, updateIndexes } = initFiltering(sampleTable.filter.elements);
+
+// Инициализируем поиск
+const applySearching = initSearching(sampleTable.search);
+
+// Получаем корневой элемент приложения
+const appRoot = document.querySelector("#app");
 appRoot.appendChild(sampleTable.container);
+
+/**
+ * Функция инициализации приложения
+ * @returns {Promise} - Промис завершения инициализации
+ */
+async function init() {
+    // Загружаем индексы
+    const indexes = await api.getIndexes();
+
+    // Обновляем индексы в фильтрах
+    updateIndexes(sampleTable.filter.elements, {
+        searchBySeller: indexes.sellers,
+    });
+}
+
+// Запускаем инициализацию и первый рендер
 init().then(render);
+
+/**
+ * Общая структура приложения:
+ * 1. Инициализация компонентов
+ * 2. Настройка обработчиков
+ * 3. Сбор и обработка данных
+ * 4. Рендеринг интерфейса
+ * 5. Обновление состояния
+ */
