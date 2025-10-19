@@ -82,7 +82,7 @@ const applySorting = initSorting([sampleTable.header.elements.sortByDate, sample
 const { applyFiltering, updateIndexes } = initFiltering(sampleTable.filter.elements);
 
 // Инициализируем поиск
-const applySearching = initSearching(sampleTable.search);
+const applySearching = initSearching('search');
 
 // Получаем корневой элемент приложения
 const appRoot = document.querySelector("#app");
